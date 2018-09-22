@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"syscall/js"
 )
 
 //ExportedObject t
@@ -46,11 +47,48 @@ func (e ExportedObject) Convert(search, input string) int {
 	return len(result)
 }
 
-func main() {
-	// c := make(chan struct{}, 0)
+// Search t
+func Search(search, jsonString *string) []Item {
+	var data Data
+	var result []Item
 
-	Finder := ExportedObject{}
-	data := Finder.Convert("what", "{\"data\":[{\"name\": \"whatt\"}, {\"name\": \"test\"}]}")
-	fmt.Println(data)
-	// <-c
+	jsonCode := []byte(string(*jsonString))
+
+	err := json.Unmarshal(jsonCode, &data)
+
+	if err != nil {
+		fmt.Println(err)
+	}
+
+	for _, item := range data.Data {
+		if &item.Name == search {
+			result = append(result, item)
+			break
+		}
+	}
+
+	return result
+}
+
+func main() {
+	c := make(chan struct{}, 0)
+
+	js.Global().Set("search", js.NewCallback(func(args []js.Value) {
+		searchString := js.ValueOf(args[0]).String()
+		jsonString := js.ValueOf(args[1]).String()
+
+		fmt.Println(searchString, jsonString)
+		result := Search(&searchString, &jsonString)
+
+		data, err := json.Marshal(result)
+
+		if err != nil {
+			fmt.Println(err)
+		}
+
+		fmt.Println("I'M really done", result)
+		js.Global().Set("goValue", string(data))
+	}))
+
+	<-c
 }
